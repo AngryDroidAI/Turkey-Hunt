@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turkey Hunt</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+            overflow: hidden;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        #gameCanvas {
+            background: linear-gradient(to bottom, #87CEEB 60%, #7EC850 40%);
+            display: block;
+        }
+        
+        .game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+            z-index: 10;
+        }
+        
+        .start-screen, .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 100;
+            text-align: center;
+        }
+        
+        .game-over-screen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        }
+        
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        
+        button {
+            background: linear-gradient(to bottom, #ff8c00, #ff5500);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            padding: 15px 40px;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+        
+        .crosshair {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 50;
+            display: none;
+        }
+        
+        .crosshair::before, .crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+            box-shadow: 0 0 3px black;
+        }
+        
+        .crosshair::before {
+            width: 100%;
+            height: 3px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .crosshair::after {
+            width: 3px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">Turkey Hunt</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="game-ui">
+            <div class="score">Score: <span id="scoreValue">0</span></div>
+            <div class="ammo">Ammo: <span id="ammoValue">3</span></div>
+            <div class="time">Time: <span id="timeValue">60</span>s</div>
+        </div>
+        
+        <div class="start-screen" id="startScreen">
+            <h1>Turkey Hunt</h1>
+            <p>Shoot the turkeys as they fly across the screen!<br>
+            You have 60 seconds to score as many points as possible.<br>
+            Click to shoot - you have 3 shots before reloading.</p>
+            <button id="startButton">Start Hunting</button>
+            <div class="instructions">Move mouse to aim | Click to shoot | Reload automatically when out of ammo</div>
+        </div>
+        
+        <div class="game-over-screen" id="gameOverScreen">
+            <h1>Game Over</h1>
+            <p>Your final score: <span id="finalScore">0</span></p>
+            <button id="restartButton">Play Again</button>
+            <div class="instructions">Thank you for playing Turkey Hunt!</div>
+        </div>
+        
+        <div class="crosshair" id="crosshair"></div>
+    </div>
+
+    <script>
+        // Game variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const scoreValue = document.getElementById('scoreValue');
+        const ammoValue = document.getElementById('ammoValue');
+        const timeValue = document.getElementById('timeValue');
+        const finalScore = document.getElementById('finalScore');
+        const crosshair = document.getElementById('crosshair');
+        
+        let score = 0;
+        let ammo = 3;
+        let gameTime = 60;
+        let timeLeft = gameTime;
+        let turkeys = [];
+        let lastTurkeyTime = 0;
+        let turkeySpawnRate = 2000;
+        let gameStartTime = 0;
+        let isGameActive = false;
+        let gameLoopId;
+        let mouseX = 0, mouseY = 0;
+        
+        // Turkey class
+        class Turkey {
+            constructor() {
+                this.width = 60;
+                this.height = 40;
+                this.speed = Math.random() * 3 + 3;
+                this.direction = Math.random() > 0.5 ? 1 : -1; // 1 for right, -1 for left
+                
+                if (this.direction === 1) {
+                    this.x = -this.width;
+                } else {
+                    this.x = canvas.width;
+                }
+                
+                this.y = Math.random() * (canvas.height / 2) + (canvas.height / 3);
+                this.isHit = false;
+                this.hitTime = 0;
+                this.frame = 0;
+                this.wingFlapSpeed = Math.random() * 0.1 + 0.05;
+            }
+            
+            update() {
+                this.x += this.speed * this.direction;
+                this.frame += this.wingFlapSpeed;
+                
+                // Remove if off screen
+                if ((this.direction === 1 && this.x > canvas.width) || 
+                    (this.direction === -1 && this.x < -this.width)) {
+                    return true;
+                }
+                
+                // If hit, fall down
+                if (this.isHit) {
+                    this.y += 5;
+                    if (this.y > canvas.height) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            draw() {
+                if (this.isHit) {
+                    // Draw hit turkey (falling)
+                    ctx.save();
+                    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+                    ctx.rotate(Math.PI / 2);
+                    
+                    // Body
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.height/2, this.width/3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Head
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.arc(this.width/4, 0, this.height/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Beak
+                    ctx.fillStyle = '#FFA500';
+                    ctx.beginPath();
+                    ctx.moveTo(this.width/3.5, 0);
+                    ctx.lineTo(this.width/2.5, -this.height/8);
+                    ctx.lineTo(this.width/2.5, this.height/8);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Eye
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.arc(this.width/4.5, -this.height/10, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Wattle
+                    ctx.fillStyle = '#FF0000';
+                    ctx.beginPath();
+                    ctx.ellipse(this.width/4, this.height/8, this.height/10, this.height/15, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.restore();
+                } else {
+                    // Draw flying turkey
+                    ctx.save();
+                    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+                    
+                    // Body
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.width/3, this.height/2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Head
+                    ctx.fillStyle = '#8B4513';
+                    ctx.beginPath();
+                    ctx.arc(this.width/4, 0, this.height/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Beak
+                    ctx.fillStyle = '#FFA500';
+                    ctx.beginPath();
+                    ctx.moveTo(this.width/3.5, 0);
+                    ctx.lineTo(this.width/2.5, -this.height/8);
+                    ctx.lineTo(this.width/2.5, this.height/8);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Eye
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.arc(this.width/4.5, -this.height/10, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Wattle
+                    ctx.fillStyle = '#FF0000';
+                    ctx.beginPath();
+                    ctx.ellipse(this.width/4, this.height/8, this.height/10, this.height/15, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Wings (flapping)
+                    ctx.fillStyle = '#A0522D';
+                    const wingY = Math.sin(this.frame) * 5;
+                    ctx.beginPath();
+                    ctx.ellipse(-this.width/4, wingY, this.width/4, this.height/4, Math.PI/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.ellipse(-this.width/4, -wingY, this.width/4, this.height/4, -Math.PI/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            }
+            
+            isPointInside(x, y) {
+                return x >= this.x && x <= this.x + this.width && 
+                       y >= this.y && y <= this.y + this.height;
+            }
+        }
+        
+        // Draw the gun at the bottom
+        function drawGun() {
+            ctx.fillStyle = '#2F2F2F';
+            // Gun barrel
+            ctx.fillRect(canvas.width/2 - 5, canvas.height - 40, 10, 40);
+            // Gun handle
+            ctx.fillRect(canvas.width/2 - 15, canvas.height - 20, 30, 20);
+        }
+        
+        // Draw the crosshair
+        function updateCrosshair() {
+            crosshair.style.left = (mouseX - 15) + 'px';
+            crosshair.style.top = (mouseY - 15) + 'px';
+        }
+        
+        // Game functions
+        function startGame() {
+            score = 0;
+            ammo = 3;
+            timeLeft = gameTime;
+            turkeys = [];
+            lastTurkeyTime = 0;
+            turkeySpawnRate = 2000;
+            gameStartTime = Date.now();
+            isGameActive = true;
+            
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            crosshair.style.display = 'block';
+            
+            updateUI();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+        
+        function endGame() {
+            isGameActive = false;
+            cancelAnimationFrame(gameLoopId);
+            
+            finalScore.textContent = score;
+            gameOverScreen.style.display = 'flex';
+            crosshair.style.display = 'none';
+        }
+        
+        function updateUI() {
+            scoreValue.textContent = score;
+            ammoValue.textContent = ammo;
+            timeValue.textContent = timeLeft;
+        }
+        
+        function spawnTurkey() {
+            if (Date.now() - lastTurkeyTime > turkeySpawnRate) {
+                turkeys.push(new Turkey());
+                lastTurkeyTime = Date.now();
+                
+                // Increase spawn rate as game progresses
+                const elapsed = (Date.now() - gameStartTime) / 1000;
+                turkeySpawnRate = Math.max(800, 2000 - elapsed * 20);
+            }
+        }
+        
+        function shoot(x, y) {
+            if (ammo <= 0 || !isGameActive) return;
+            
+            ammo--;
+            updateUI();
+            
+            // Check if any turkey was hit
+            for (let i = turkeys.length - 1; i >= 0; i--) {
+                if (turkeys[i].isPointInside(x, y) && !turkeys[i].isHit) {
+                    turkeys[i].isHit = true;
+                    turkeys[i].hitTime = Date.now();
+                    score += 10;
+                    updateUI();
+                    break;
+                }
+            }
+            
+            // Draw muzzle flash
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(canvas.width/2, canvas.height - 40, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Reload if out of ammo
+            if (ammo === 0) {
+                setTimeout(() => {
+                    if (isGameActive) {
+                        ammo = 3;
+                        updateUI();
+                    }
+                }, 1000);
+            }
+        }
+        
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background (sky and grass)
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.6, '#87CEEB');
+            gradient.addColorStop(0.61, '#7EC850');
+            gradient.addColorStop(1, '#5E9C3B');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(100, 80, 30, 0, Math.PI * 2);
+            ctx.arc(130, 70, 40, 0, Math.PI * 2);
+            ctx.arc(160, 80, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(600, 120, 40, 0, Math.PI * 2);
+            ctx.arc(630, 110, 50, 0, Math.PI * 2);
+            ctx.arc(660, 120, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw some trees in the background
+            ctx.fillStyle = '#5D4037';
+            ctx.fillRect(200, canvas.height/2, 20, canvas.height/2);
+            ctx.fillStyle = '#2E7D32';
+            ctx.beginPath();
+            ctx.moveTo(180, canvas.height/2);
+            ctx.lineTo(220, canvas.height/2);
+            ctx.lineTo(210, canvas.height/3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#5D4037';
+            ctx.fillRect(500, canvas.height/2, 20, canvas.height/2);
+            ctx.fillStyle = '#2E7D32';
+            ctx.beginPath();
+            ctx.moveTo(480, canvas.height/2);
+            ctx.lineTo(520, canvas.height/2);
+            ctx.lineTo(510, canvas.height/3);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Update and draw turkeys
+            spawnTurkey();
+            for (let i = turkeys.length - 1; i >= 0; i--) {
+                if (turkeys[i].update()) {
+                    turkeys.splice(i, 1);
+                } else {
+                    turkeys[i].draw();
+                }
+            }
+            
+            // Draw gun
+            drawGun();
+            
+            // Update time
+            timeLeft = Math.max(0, gameTime - Math.floor((Date.now() - gameStartTime) / 1000));
+            updateUI();
+            
+            // Check if game should end
+            if (timeLeft <= 0) {
+                endGame();
+                return;
+            }
+            
+            // Continue game loop
+            if (isGameActive) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+            updateCrosshair();
+        });
+        
+        canvas.addEventListener('click', (e) => {
+            if (!isGameActive) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            shoot(x, y);
+        });
+        
+        // Hide crosshair when mouse leaves canvas
+        canvas.addEventListener('mouseleave', () => {
+            crosshair.style.display = 'none';
+        });
+        
+        canvas.addEventListener('mouseenter', () => {
+            if (isGameActive) {
+                crosshair.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
